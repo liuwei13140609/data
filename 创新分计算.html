@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西交大博士创新分计算和申诉创新分计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; }
+        .input-box { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; outline: none; transition: border-color 0.2s; text-align: center; font-size: 1.125rem; font-weight: bold;}
+        .input-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+        .fade-in { animation: fadeIn 0.3s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="p-4 md:p-8 text-gray-800 flex justify-center">
+
+    <div class="max-w-4xl w-full space-y-6">
+        
+        <!-- Header -->
+        <div class="bg-[#004A8F] text-white p-6 rounded-2xl shadow-lg text-center">
+            <h1 class="text-2xl md:text-3xl font-bold mb-2"><i class="fas fa-calculator mr-2"></i>西交大博士创新分计算和申诉创新分计算器</h1>
+            <p class="text-blue-100 text-sm">输入各专家打分，自动计算初始得分及“退一进二”申诉后的最终结果</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            
+            <!-- Left Column: Inputs -->
+            <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100 flex flex-col h-full">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 flex items-center"><i class="fas fa-edit text-blue-500 mr-2"></i> 第一步：初始打分录入</h2>
+                
+                <div class="flex-1 flex flex-col">
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 h-28 flex flex-col justify-center mb-6">
+                        <label class="block text-sm font-medium text-blue-800 mb-1">论文创新点总数 (N)</label>
+                        <select id="nPoints" class="w-full p-2 border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white font-bold" onchange="updateMaxScores()">
+                            <option value="3" selected>3 条创新点</option>
+                            <option value="4">4 条创新点</option>
+                        </select>
+                        <p class="text-xs text-blue-600 mt-1">注意：每位专家最高打分为创新点总数</p>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-3">录入初始创新分</label>
+                        <div class="grid grid-cols-3 gap-3 items-end">
+                            <div>
+                                <label class="block text-xs font-bold text-center text-gray-600 mb-2">明审 (院内)</label>
+                                <input type="number" id="ming" class="input-box bg-blue-100 text-blue-800 cursor-not-allowed" value="3" min="0" max="3" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-center text-gray-600 mb-2">盲审 1</label>
+                                <input type="number" id="mang1" class="input-box bg-green-50" value="1" min="0" max="3" oninput="calculate()">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-center text-gray-600 mb-2">盲审 2</label>
+                                <input type="number" id="mang2" class="input-box bg-green-50" value="0" min="0" max="3" oninput="calculate()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial Result Box -->
+                <div id="initialResultBox" class="mt-auto p-4 rounded-xl border-2 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-gray-600">初始创新分计算：</span>
+                        <span id="initialFormula" class="text-xs text-gray-500 font-mono"></span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <span class="text-3xl font-black" id="initialScoreText">0</span>
+                        <span id="initialStatusText" class="font-bold text-lg px-3 py-1 rounded-full"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Appeal Section (Hidden by default if passed) -->
+            <div id="appealSection" class="bg-white p-6 rounded-2xl shadow-md border border-gray-100 opacity-50 pointer-events-none transition-opacity duration-300 relative overflow-hidden flex flex-col h-full">
+                <!-- Overlay for disabled state -->
+                <div id="appealOverlay" class="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                    <div class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg">初始已达标，无需申诉 🎉</div>
+                </div>
+
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 flex items-center text-red-600"><i class="fas fa-gavel mr-2"></i> 第二步：“退一进二”申诉</h2>
+                
+                <div class="relative z-0 flex-1 flex flex-col">
+                    <div class="bg-red-50 p-3 rounded-lg border border-red-100 h-28 flex flex-col justify-center mb-6">
+                        <label class="block text-sm font-bold text-red-800 mb-2">选择作废的盲审结果（退一）</label>
+                        <select id="appealChoice" class="w-full p-2 border border-red-300 rounded-md focus:ring-red-500 text-red-700 font-bold bg-white" onchange="calculate()">
+                            <option value="1">废除：盲审 1</option>
+                            <option value="2">废除：盲审 2</option>
+                        </select>
+                        <p class="text-xs text-red-600 mt-1" id="appealSuggestion"><i class="fas fa-lightbulb"></i> 策略提示：已自动为您选中最低分。</p>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-3">录入加送结果（进二）</label>
+                        <div class="grid grid-cols-2 gap-6 items-end">
+                            <div>
+                                <label class="block text-xs text-center font-bold text-gray-600 mb-2">盲审 3 (新加送)</label>
+                                <input type="number" id="mang3" class="input-box bg-purple-50" value="3" min="0" max="3" oninput="calculate()">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-center font-bold text-gray-600 mb-2">盲审 4 (新加送)</label>
+                                <input type="number" id="mang4" class="input-box bg-purple-50" value="3" min="0" max="3" oninput="calculate()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Final Result Box -->
+                <div id="finalResultBox" class="mt-auto p-4 rounded-xl border-2 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-gray-600">最终创新分计算：</span>
+                        <span id="finalFormula" class="text-xs text-gray-500 font-mono"></span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <span class="text-4xl font-black" id="finalScoreText">0</span>
+                        <span id="finalStatusText" class="font-bold text-xl px-4 py-1 rounded-full shadow-sm"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Strategy Summary Guide -->
+        <div class="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl shadow-sm">
+            <h3 class="text-lg font-bold text-yellow-800 mb-3 flex items-center"><i class="fas fa-book-open mr-2"></i> 申诉策略终极总结</h3>
+            <ul class="space-y-2 text-sm text-gray-700">
+                <li class="flex items-start"><i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i> <div><strong>绝对原则：</strong>申诉必须选<strong>最低分</strong>的那份盲审，确保未被申诉的较高分数得以保留。</div></li>
+                <li class="flex items-start"><i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i> <div><strong>分母膨胀警告：</strong>申诉后，计算总分母从 3份 变为 4份（3条点分母变为12，4条点变为16），稀释效应严重。</div></li>
+                <li class="flex items-start"><i class="fas fa-exclamation-triangle text-yellow-500 mt-1 mr-2"></i> <div><strong>极端情况：</strong>哪怕原始盲审是0分和1分的双惨开局，只要去申诉0分，且加送的两位专家给满分，依然能达到 81.25% (大于75%) 惊险翻盘！</div></li>
+                <li class="flex items-start"><i class="fas fa-times-circle text-red-500 mt-1 mr-2"></i> <div><strong>失败高危区：</strong>如果原盲审较高者也很低(≤1)，而加送的分数又不足(≤2)，则必死无疑。加送的分数至关重要！</div></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function updateMaxScores() {
+            const n = parseInt(document.getElementById('nPoints').value);
+            const inputs = ['ming', 'mang1', 'mang2', 'mang3', 'mang4'];
+            
+            // 创新点总数变化时，明审自动与其保持一致并设为满分
+            document.getElementById('ming').value = n;
+
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                el.max = n;
+                // If current value exceeds new max, adjust it
+                if (parseInt(el.value) > n) {
+                    el.value = n;
+                }
+            });
+            calculate();
+        }
+
+        function getVal(id) {
+            const val = parseFloat(document.getElementById(id).value);
+            return isNaN(val) ? 0 : val;
+        }
+
+        function calculate() {
+            const N = parseInt(document.getElementById('nPoints').value);
+            const ming = getVal('ming');
+            const mang1 = getVal('mang1');
+            const mang2 = getVal('mang2');
+            
+            // --- 1. Initial Calculation ---
+            const initialSum = ming + mang1 + mang2;
+            const initialTotal = N * 3;
+            const initialScore = Math.floor((initialSum / initialTotal) * 100); // 结果向下取整
+            
+            document.getElementById('initialFormula').innerText = `(${ming}+${mang1}+${mang2}) / ${initialTotal} × 100`;
+            document.getElementById('initialScoreText').innerText = initialScore;
+            
+            const initialBox = document.getElementById('initialResultBox');
+            const initialStatus = document.getElementById('initialStatusText');
+            const appealSection = document.getElementById('appealSection');
+            const appealOverlay = document.getElementById('appealOverlay');
+            
+            let isInitialPass = initialScore >= 75;
+
+            if (isInitialPass) {
+                initialBox.className = "mt-auto p-4 rounded-xl border-2 border-green-400 bg-green-50";
+                initialStatus.className = "font-bold text-lg px-3 py-1 rounded-full bg-green-500 text-white";
+                initialStatus.innerText = "✅ 达标上会";
+                initialStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i> 达标上会';
+                
+                // Disable appeal section
+                appealSection.classList.add('opacity-50', 'pointer-events-none');
+                appealOverlay.style.display = 'flex';
+                
+                // Clear final box
+                document.getElementById('finalResultBox').className = "mt-auto p-4 rounded-xl border-2 border-gray-200 bg-gray-50";
+                document.getElementById('finalScoreText').innerText = "--";
+                document.getElementById('finalStatusText').innerText = "";
+                document.getElementById('finalFormula').innerText = "";
+            } else {
+                initialBox.className = "mt-auto p-4 rounded-xl border-2 border-red-400 bg-red-50";
+                initialStatus.className = "font-bold text-lg px-3 py-1 rounded-full bg-red-500 text-white";
+                initialStatus.innerHTML = '<i class="fas fa-times-circle mr-1"></i> 未过需申诉';
+                
+                // Enable appeal section
+                appealSection.classList.remove('opacity-50', 'pointer-events-none');
+                appealOverlay.style.display = 'none';
+
+                // --- Auto Suggestion Logic ---
+                const selectChoice = document.getElementById('appealChoice');
+                const suggestionText = document.getElementById('appealSuggestion');
+                
+                // Only auto-change if user hasn't explicitly set it or if it's the first time
+                // We'll dynamically set the logic: always recommend discarding the lower score
+                let recommendedDrop = mang1 <= mang2 ? "1" : "2";
+                
+                // Update dropdown texts dynamically to show scores
+                selectChoice.options[0].text = `废除：盲审 1 (得分: ${mang1})`;
+                selectChoice.options[1].text = `废除：盲审 2 (得分: ${mang2})`;
+
+                if(mang1 !== mang2) {
+                    suggestionText.innerHTML = `<i class="fas fa-lightbulb text-yellow-500"></i> 策略提示：盲审${recommendedDrop}分数更低，建议废除。`;
+                } else {
+                    suggestionText.innerHTML = `<i class="fas fa-lightbulb text-yellow-500"></i> 策略提示：两份盲审分数相同，废除任一均可。`;
+                }
+
+                // --- 2. Final Calculation ---
+                const dropChoice = document.getElementById('appealChoice').value;
+                const mang3 = getVal('mang3');
+                const mang4 = getVal('mang4');
+                
+                let keptMang = dropChoice === "1" ? mang2 : mang1;
+                
+                const finalSum = ming + keptMang + mang3 + mang4;
+                const finalTotal = N * 4;
+                const finalScore = Math.floor((finalSum / finalTotal) * 100); // 结果向下取整
+                
+                document.getElementById('finalFormula').innerText = `(${ming} + ${keptMang} + ${mang3} + ${mang4}) / ${finalTotal} × 100`;
+                document.getElementById('finalScoreText').innerText = finalScore;
+                
+                const finalBox = document.getElementById('finalResultBox');
+                const finalStatus = document.getElementById('finalStatusText');
+
+                if (finalScore >= 75) {
+                    finalBox.className = "mt-auto p-4 rounded-xl border-2 border-green-500 bg-green-50 shadow-inner";
+                    finalStatus.className = "font-bold text-xl px-4 py-1 rounded-full bg-green-500 text-white shadow-md fade-in";
+                    finalStatus.innerHTML = '<i class="fas fa-crown mr-1"></i> 申诉翻盘成功！';
+                    document.getElementById('finalScoreText').classList.add('text-green-600');
+                    document.getElementById('finalScoreText').classList.remove('text-red-600');
+                } else {
+                    finalBox.className = "mt-auto p-4 rounded-xl border-2 border-red-500 bg-red-50 shadow-inner";
+                    finalStatus.className = "font-bold text-xl px-4 py-1 rounded-full bg-red-500 text-white shadow-md fade-in";
+                    finalStatus.innerHTML = '<i class="fas fa-skull-crossbones mr-1"></i> 申诉失败 (延毕)';
+                    document.getElementById('finalScoreText').classList.add('text-red-600');
+                    document.getElementById('finalScoreText').classList.remove('text-green-600');
+                }
+            }
+        }
+
+        // Add event listeners to input fields to prevent entering values greater than Max
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', function() {
+                const max = parseInt(this.max);
+                const min = parseInt(this.min);
+                if (parseInt(this.value) > max) this.value = max;
+                if (parseInt(this.value) < min) this.value = min;
+            });
+        });
+
+        // Initialize
+        window.onload = calculate;
+    </script>
+</body>
+</html>
